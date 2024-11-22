@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-noticias-configmap
+data:
+  IP_SISTEMA: http://localhost:3001
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-noticias-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: portal-noticias
+  template:
+    metadata:
+      labels:
+        app: portal-noticias
+    spec:
+      containers:
+        - name: portal-noticias-container
+          image: aluracursos/portal-noticias:1
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m" # 500 millicores
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: portal-noticias-configmap
+          livenessProbe: # o livenessProbe e o readinessProbe podem fazer o hpa não funcionar
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+            failureThreshold: 3
+            initialDelaySeconds: 20 # depois de 20 s executa o teste
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+            failureThreshold: 10 # na quarta envia as requisições mesmo assim
+            initialDelaySeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-noticias-loadbalancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: portal-noticias
+  ports:
+    - port: 80
+      nodePort: 30000
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sistema-configmap
+data:
+  HOST_DB: svc-db-noticias:3306
+  USER_DB: root
+  PASS_DB: q1w2e3r4
+  DATABASE_DB: empresa
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sistema-noticias-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sistema-noticias
+  template:
+    metadata:
+      labels:
+        app: sistema-noticias
+    spec:
+      containers:
+        - name: sistema-noticias-container
+          image: aluracursos/sistema-noticias:1
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: sistema-configmap
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sistema-loadbalancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: sistema-noticias
+  ports:
+    - port: 80
+      nodePort: 30001
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-configmap
+data:
+  MYSQL_ROOT_PASSWORD: q1w2e3r4
+  MYSQL_DATABASE: empresa
+  MYSQL_PASSWORD: q1w2e3r4
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-noticias-deployment
+spec:
+  #replicas: 1 # default
+  selector:
+    matchLabels:
+      app: db-noticias
+  template:
+    metadata:
+      labels:
+        app: db-noticias
+    spec:
+      containers:
+        - name: db-noticias-container
+          image: mysql:8
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - configMapRef:
+                name: db-configmap
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-db-noticias
+spec:
+  type: ClusterIP
+  selector:
+    app: db-noticias
+  ports:
+    - port: 3306

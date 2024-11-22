@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-volume
+  labels:
+    name: pod-volume
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts:
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-volume
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      ports:
+        - containerPort: 80
+    - name: jenkins-container
+      image: jenkins:alpine
+      volumeMounts:
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-volume
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+  volumes:
+    - name: primeiro-volume
+      hostPath:
+        path: /C/alura/kubernetes+deployments+volumes+escalabilidade/primeiro-volume
+        type: DirectoryOrCreate
